@@ -2,18 +2,28 @@ package typeCheck;
 
 import syntaxtree.*;
 
-public class ID extends Type{
+public class ID implements Scope{
+    String str;
+
     private static ID ourInstance = new ID();
 
     public static ID instance(){
         return ourInstance;
     }
 
-    private ID(){
+    public ID(){
 
     }
 
+    public ID(String s){
+        str = s;
+    }
+
     public String name(){
-        return "ID";
+        return str;
+    }
+
+    public void nameAdd(String s){
+        str = s;
     }
 }

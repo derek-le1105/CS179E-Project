@@ -2,7 +2,7 @@ package typeCheck;
 
 import syntaxtree.*;
 
-public class Int extends Type{
+public class Int implements Scope{
     private static Int ourInstance = new Int();
 
     public static Int instance(){
@@ -10,6 +10,7 @@ public class Int extends Type{
     }
 
     private Int(){
+        
     }
 
     public String name(){
