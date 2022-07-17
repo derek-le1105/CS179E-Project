@@ -7,7 +7,7 @@ public class typeCheckerLauncher {
             new MiniJavaParser(stream);
             Goal root = MiniJavaParser.Goal();
             typeCheck typeChecker = new typeCheck(root);
-            typeChecker.check();
+            //typeChecker.check(root);
             System.out.println("Program type checked successfully");
         }
         catch(Exception e){
