@@ -4,7 +4,7 @@ class Holder{
     //superClass, fields, methods
     String SC;
     Map<String, String> fields = new HashMap<>();
-    Map<String, String> methods = new HashMap<>();
+    Map<String, String> methods = new HashMap<>();           //Change int
     Map<String, Map<String, String>> hold = new HashMap<>(); //Change < p1, int>>
     
     public Holder(){
@@ -24,12 +24,12 @@ class Holder{
     }
   
     public void hold_input(String str1, String str2, String str3){
-      Map<String, String> inner = hold.get(str1);
-      if(inner == null){
-          inner = new HashMap<>();
-      hold.put(str1, inner);
-      }
-      inner.put(str2, str3);
+        Map<String, String> inner = hold.get(str1);
+        if(inner == null){
+            inner = new HashMap<>();
+            hold.put(str1, inner);
+        }
+        inner.put(str2, str3);
     }
     
     public String get_SC(String str){
@@ -55,7 +55,14 @@ class Holder{
     public String printEverything(){
         String output = "    SC: " + this.SC + '\n' + 
                         "    Fields:" + this.fields + '\n' +
-                        "    Methods: " + this.methods + '\n';
+                        "    Methods: " + this.methods + '\n' +
+                        "    Passer: ";
+    
+        for (String temp : hold.keySet()) {
+            for (String c : hold.get(temp).keySet()) {
+                System.out.println("key--" + c + "--value--" + hold.get(temp).get(c));
+            }
+        }
         return output;
-    }
+      }
   }

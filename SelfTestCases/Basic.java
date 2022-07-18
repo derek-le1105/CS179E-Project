@@ -5,11 +5,10 @@ class Main {
 }
 
 class A {
+	int num;
 	public int run() {
 		int x;
-		int [] y;
-		
-		x = 1;
+		x = x+1;
 		return x;
 	}
 }

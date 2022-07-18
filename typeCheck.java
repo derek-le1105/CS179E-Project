@@ -12,6 +12,7 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
     String key; //class
     String currMethod;
     boolean goToSecondPass = false;
+    boolean insideMethod = false;
     Map<String, Map<String, String>> map = new HashMap<String, Map<String, String>>();
     HashMap<String, String> idHashMap = new HashMap<String, String>(); 
 
@@ -28,8 +29,13 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
     public void check(Goal root){
         goToSecondPass = true;
         System.out.println("======================Second pass=====================");
-        root.f0.accept(this);
+        Pass2 pass2 = new Pass2(phase1, root);
+        
+        /*root.f0.accept(this);
         root.f1.accept(this);
+        for(String key: phase1.keySet()){
+            System.out.println(key+"=>\n" + phase1.get(key).printEverything());
+        }*/
     }
 
     @Override
@@ -55,11 +61,14 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
     public Scope visit(NodeOptional nodeOption) {
         // TODO Auto-generated method stub
         System.out.println("nodeoptional");
-        if(nodeOption.present())    
-            nodeOption.node.accept(this);
+        if(nodeOption.present()){    
+            Scope scope1 = nodeOption.node.accept(this);
+            System.out.println("returning: " + scope1.name() + "from nodeOptional");
+            return scope1;
+        }
         else
             System.out.println("not present");
-        return Int.instance();
+            return Int.instance();
     }
 
     @Override
@@ -103,8 +112,7 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
         // TODO Auto-generated method stub
         System.out.println("mainclass");
         Scope scope1 = mainClass.f1.accept(this);
-        key = scope1.name();
-        phase1.put(scope1.name(), new Holder());
+        //phase1.put(scope1.name(), new Holder());
         mainClass.f11.accept(this);
         mainClass.f14.accept(this);
         mainClass.f15.accept(this);
@@ -126,7 +134,8 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
         System.out.println("classdeclaration");
         Scope scope1 = classDec.f1.accept(this);
         key = scope1.name();
-        phase1.put(scope1.name(), new Holder());
+        if(!goToSecondPass)
+            phase1.put(scope1.name(), new Holder());
         classDec.f3.accept(this);
         System.out.println("classDec f4");
         classDec.f4.accept(this);
@@ -140,8 +149,10 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
         Scope scope1 = classExtend.f1.accept(this);
         Scope scope2 = classExtend.f3.accept(this);
         key = scope1.name();
-        phase1.put(scope1.name(), new Holder());
-        phase1.get(key).SC_input(scope2.name());
+        if(!goToSecondPass){
+            phase1.put(scope1.name(), new Holder());
+            phase1.get(key).SC_input(scope2.name());
+        }
         Scope scope3 = classExtend.f5.accept(this);
         Scope scope4 = classExtend.f6.accept(this);
         return Int.instance();
@@ -152,29 +163,37 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
         // TODO Auto-generated method stub
         System.out.println("vardeclaration");   
         Scope scope1 = varDec.f0.accept(this);
-        Scope scope2 = varDec.f1.accept(this);  
-        phase1.get(key).field_input(scope1.name(), scope2.name());
-
-        System.out.println(scope2.name() + "_" + scope1.name());
+        Scope scope2 = varDec.f1.accept(this); 
+        if(!goToSecondPass){
+            phase1.get(key).field_input(scope2.name(), scope1.name());
+            System.out.println("appending " + scope2.name());
+            System.out.println(phase1.get(key).printEverything());
+        }
+        /*System.out.println(scope2.name() + "_" + scope1.name());
         idHashMap.put(scope2.name(), scope1.name());
-        System.out.println(idHashMap);
-        varDec.f1.accept(this);
+        System.out.println(idHashMap);*/
         return Int.instance();
     }
 
     @Override
     public Scope visit(MethodDeclaration methodDec) {
         // TODO Auto-generated method stub
+        //insideMethod = true;
         System.out.println("methoddeclaration");
         Scope scope1 = methodDec.f1.accept(this);
         Scope scope2 = methodDec.f2.accept(this);
-        phase1.get(key).met_input(scope2.name(), scope1.name());
+        if(!goToSecondPass)
+            phase1.get(key).met_input(scope2.name(), scope1.name());
+
         idHashMap.put(scope2.name(), scope1.name());
-        System.out.println("approaching f4");
-        methodDec.f4.accept(this);
+        currMethod = scope2.name();
+        System.out.println("approaching f4 in methodDec");
+        Scope scope3 = methodDec.f4.accept(this);
+        System.out.println("scope3: " + scope3);
         methodDec.f7.accept(this);
         methodDec.f8.accept(this);
         methodDec.f10.accept(this);
+        //insideMethod = false;
         return Int.instance();
     }
 
@@ -194,6 +213,9 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
         Scope scope1 = formalParam.f0.accept(this);
         Scope scope2 = formalParam.f1.accept(this);
         idHashMap.put(scope2.name(), scope1.name());
+        System.out.println(phase1.get(key));
+        if(!goToSecondPass)
+            phase1.get(key).hold_input(currMethod, scope2.name(), scope1.name());
         return Int.instance();
     }
 
@@ -255,18 +277,22 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
     @Override
     public Scope visit(AssignmentStatement assignmentState) {
         // TODO Auto-generated method stub
-        System.out.println("assignmentstatement");
-        Scope type1 = assignmentState.f0.accept(this);
+        System.out.println("assignmentstatement: start");
+        Scope identifier = assignmentState.f0.accept(this);
         String ident = assignmentState.f0.f0.tokenImage;
-        if(!idHashMap.containsKey(ident) && goToSecondPass){
+
+        if((phase1.get(key).get_field(ident) == null) && goToSecondPass){
             throw new Error("Not a valid identifier: " + ident);
         }
-        Scope type2 = assignmentState.f2.accept(this);
-        System.out.println("ident type: " + idHashMap.get(ident));
-        System.out.println("type2.name(): " + type2.name());
-        if(!(idHashMap.get(ident) == type2.name()) && goToSecondPass)
+
+        Scope expression = assignmentState.f2.accept(this);
+        System.out.println("assignmentstatement: expression.name(): " + expression.name());
+        System.out.println(phase1.get(key).get_field(ident) + " == " + expression.name());
+        
+        if((phase1.get(key).get_field(ident) != phase1.get(key).get_met(expression.name())) && goToSecondPass)
             throw new Error("Type of ident != type of assignment");
-        return type1;
+        System.out.println("assignmentstatement: end");
+        return identifier;
     }
 
     @Override
@@ -285,14 +311,16 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
     public Scope visit(IfStatement ifState) {
         // TODO Auto-generated method stub
         System.out.println("ifstate");
-        Scope type1 = ifState.f2.accept(this);
-        System.out.println(type1.name());
-        if(!(type1 == Bool.instance()) && goToSecondPass)
+        Scope expression = ifState.f2.accept(this);
+        System.out.println(expression.name());
+        if(!(expression == Bool.instance()) && goToSecondPass)
             throw new Error("Non-boolean operand for \"if\".");
+
         System.out.println("-Going into if-statement");
-        Scope type2 = ifState.f4.accept(this);
+        Scope ifStatment = ifState.f4.accept(this);
+
         System.out.println("-Going into else-statement");
-        Scope type3 = ifState.f6.accept(this);
+        Scope elseStatement = ifState.f6.accept(this);
         return Bool.instance();
     }
 
@@ -300,8 +328,8 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
     public Scope visit(WhileStatement whileState) {
         // TODO Auto-generated method stub
         System.out.println("whilestate");
-        Scope type1 = whileState.f2.accept(this);
-        if(!(type1 == Bool.instance()) && goToSecondPass)
+        Scope expression = whileState.f2.accept(this);
+        if(!(expression == Bool.instance()) && goToSecondPass)
             throw new Error("Non-boolean operand for \"while\".");
         return Bool.instance();
     }
@@ -309,38 +337,35 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
     @Override
     public Scope visit(PrintStatement printState) {
         // TODO Auto-generated method stub
-        System.out.println("printstate");
-        Scope type1 = printState.f2.accept(this);
-        System.out.println("asd: " + type1.name());
-        String currMethodType = idHashMap.get(type1.name());
+        System.out.println("printstate: start");
+        Scope expression = printState.f2.accept(this);
+        System.out.println("printstate: asd: " + expression.name());
+        String currMethodType = idHashMap.get(expression.name());
         if(!(currMethodType == "Int") && goToSecondPass)   //fix for new hashmap method
             throw new Error("Non-Integer operand for PrintStatement. Type is: " + currMethodType);
+        System.out.println("printstate: end");
         return Int.instance();
     }
 
     @Override
     public Scope visit(Expression expression) {
         // TODO Auto-generated method stub
-        System.out.println("expression");
-        Scope type1 = expression.f0.accept(this);
-        System.out.println("end expression");
-        return type1;
+        System.out.println("Expression: start");
+        Scope nodeChoice = expression.f0.accept(this);
+        System.out.println("Expression: end " + expression.f0.which);
+        System.out.println("Expression: returning: " + nodeChoice);
+        return nodeChoice;
     }
 
     @Override
     public Scope visit(AndExpression and) {
         // TODO Auto-generated method stub
         System.out.println("andexpression");
-        Scope scope1 = and.f0.accept(this);
-        Scope scope2 = and.f0.accept(this);
+        Scope primExp1 = and.f0.accept(this);
+        Scope primExp2 = and.f0.accept(this);
         
-        if((scope1 == scope2) && !(scope1 == Bool.instance()) && goToSecondPass)
+        if((primExp1 == primExp2) && !(primExp1 == Bool.instance()) && goToSecondPass)
             throw new Error("Non-boolean left operand for \"&&\".");
-        /* if(!(type1 == Bool.instance()))
-               throw new Error("Non-boolean left operand for \"&&\".");
-        
-           if(!(type2 == Bool.instance()))
-             throw new Error("Non-boolean right operand for \"&&\".");*/
         return Bool.instance();
     }
 
@@ -348,32 +373,23 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
     public Scope visit(CompareExpression compare) {
         // TODO Auto-generated method stub
         System.out.println("compareexpression");
-        Scope scope1 = compare.f0.accept(this);
-        Scope scope2 = compare.f2.accept(this);
-        if((scope1 == scope2) && !(scope1 == Int.instance()) && goToSecondPass)
+        Scope primExp1 = compare.f0.accept(this);
+        Scope primExp2 = compare.f2.accept(this);
+        if((primExp1 == primExp2) && !(primExp1 == Int.instance()) && goToSecondPass)
             throw new Error("Non-boolean left operand for \"<\".");
-        /* if(!(type1 == Int.instance())){
-               throw new Error("Non-integer left operand for \"<\".");
-           }
-           if(!(type2 == Int.instance())){
-               throw new Error("Non-integer right operand for \"<\".");
-           }*/
+           
         return Bool.instance();
     }
 
     @Override
     public Scope visit(PlusExpression plus) {
-        System.out.println("plus");
-        Scope scope1 = plus.f0.accept(this);
-        Scope scope2 = plus.f2.accept(this);
-        if((scope1 == scope2) && !(scope1 == Int.instance()) && goToSecondPass)
+        System.out.println("plusExpression: start");
+        Scope primExp1 = plus.f0.accept(this);
+        Scope primExp2 = plus.f2.accept(this);
+        System.out.println(primExp1.name() + primExp2.name());
+        if(!(primExp1 == primExp2) && !(primExp1 == Int.instance()) && goToSecondPass)
             throw new Error("Non-boolean left operand for \"+\".");
-        /*if(!(scope1 == Int.instance())){
-            throw new Error("Non-integer left operand for \"+\".");
-        }
-        if(!(scope2 == Int.instance())){
-            throw new Error("Non-integer right operand for \"+\".");
-        }*/
+        System.out.println("plusExpression: end");
         return Int.instance();
     }
 
@@ -381,34 +397,23 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
     public Scope visit(MinusExpression minus) {
         // TODO Auto-generated method stub
         System.out.println("minus");
-        Scope scope1 = minus.f0.accept(this);
-        Scope scope2 = minus.f2.accept(this);
-        if((scope1 == scope2) && !(scope1 == Int.instance()) && goToSecondPass)
+        Scope primExp1 = minus.f0.accept(this);
+        Scope primExp2 = minus.f2.accept(this);
+        if((primExp1 == primExp2) && !(primExp1 == Int.instance()) && goToSecondPass)
             throw new Error("Non-boolean left operand for \"-\".");
-        /*if(!(scope1 == Int.instance())){
-            throw new Error("Non-integer left operand for \"-\".");
-        } 
-        if(!(scope2 == Int.instance())){
-            throw new Error("Non-integer right operand for \"-\".");
-        }*/
         return Int.instance();
     }
 
     @Override
     public Scope visit(TimesExpression times) {
         // TODO Auto-generated method stub
-        System.out.println("timesexpression");
-        Scope scope1 = times.f0.accept(this);
-        Scope scope2 = times.f2.accept(this);
-        if((scope1 == scope2) && !(scope1 == Int.instance()) && goToSecondPass)
+        System.out.println("timesexpression: start");
+        Scope primExp1 = times.f0.accept(this);
+        Scope primExp2 = times.f2.accept(this);
+        if((primExp1 == primExp2) && !(primExp1 == Int.instance()) && goToSecondPass)
             throw new Error("Non-boolean left operand for \"*\".");
-        /*if(!(scope1 == Int.instance())){
-            throw new Error("Non-integer left operand for \"*\".");
-        } 
-        if(!(scope2 == Int.instance())){
-            throw new Error("Non-integer right operand for \"*\".");
-        }*/
-        return Int.instance();
+        System.out.println("timesexpression: end");
+        return primExp1;
     }
 
     @Override
@@ -434,24 +439,37 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
     @Override
     public Scope visit(MessageSend message) {
         // TODO Auto-generated method stub
-        System.out.println("messagesend");
-        Scope scope1 = message.f0.accept(this);
-        Scope scope2 = message.f2.accept(this);
-        Scope scope3 = message.f4.accept(this);
+        System.out.println("messagesend: start");
+        Scope primaryExpression = message.f0.accept(this);
+        System.out.println("messagesend: finish primary expression from messagesend");
+        System.out.println("messagesend: scope1name: " + primaryExpression);
+        Scope ident = message.f2.accept(this);
+        System.out.println("messagesend: finish identifier from messagesend");
+        Scope expressionList = message.f4.accept(this);
 
-        System.out.println(message.f2.f0.tokenImage);
+        System.out.println("messagesend: finish expressionlist from messagesend");
+        System.out.println("messagesend: scope1name: " + ident.name());
+        System.out.println(key +" " + ident.name());
+        if(goToSecondPass){
+            //System.out.println(phase1.get(key).printEverything());
+            String type = phase1.get(key).get_met(ident.name());
+            System.out.println(primaryExpression.name()+ ": " + type);
+            System.out.println(message.f2.f0.tokenImage);
 
-        System.out.println("end messagesend");
-        return scope2;
+            System.out.println("messagesend: end");
+        }
+        System.out.println("messagesend: returning: "+ ident);
+        return ident;
     }
 
     @Override
     public Scope visit(ExpressionList expList) {
         // TODO Auto-generated method stub
         System.out.println("expressionlist");
-        expList.f0.accept(this);
-        expList.f1.accept(this);
-        return Int.instance();
+        Scope scope1 = expList.f0.accept(this);
+        Scope scope2 = expList.f1.accept(this);
+        System.out.println("end expressionlist");
+        return scope1;
     }
 
     @Override
@@ -465,19 +483,23 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
     @Override
     public Scope visit(PrimaryExpression primaryExpression) {
         // TODO Auto-generated method stub
-        System.out.println("primaryexpression");
+        System.out.println("primaryexpression: start");
         Scope scope1 = primaryExpression.f0.accept(this);
-        System.out.println("end primaryexpression");
+        System.out.println("primaryexpression: retrieved: " + scope1.name());
+        System.out.println("primaryexpression: returning: " + scope1);
+        System.out.println("primaryexpression: end");
+        
         return scope1;
     }
 
     @Override
     public Scope visit(IntegerLiteral intLit) {
         // TODO Auto-generated method stub
-        System.out.println("integerliteral");
+        System.out.println("integerliteral: start");
         // Scope type1 = intLit.f0.accept(this);
         // if(!(type1 == Int.instance()) && goToSecondPass)
         //     throw new Error("Operand for IntegerLiteral is not an integer.");
+        System.out.println("integerliteral: end");
         return Int.instance();
     }
 
@@ -507,9 +529,8 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
         // TODO Auto-generated method stub
         System.out.println("identifier: " + ident.f0);
         Scope type1 = ident.f0.accept(this);
-        //type1.nameAdd(identifier.f0);
         Scope type2 = new ID(ident.f0.tokenImage);
-        System.out.println("Testing the type1 under Identifier: " + type2.name());
+        System.out.println("end identifier");
         return type2;
     }
 
@@ -518,7 +539,7 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
         // TODO Auto-generated method stub
         System.out.println("thisexpression");
         Scope scope1 = thisExp.f0.accept(this);
-        return Int.instance();
+        return new ID(key);
     }
 
     @Override
@@ -551,7 +572,9 @@ public class typeCheck implements GJNoArguVisitor<Scope> {
     public Scope visit(BracketExpression bracketExp) {
         // TODO Auto-generated method stub
         System.out.println("bracketexpression");
-        bracketExp.f1.accept(this);
-        return Int.instance();
+        Scope expression = bracketExp.f1.accept(this);
+        System.out.println("retrieved " + expression + " from bracket");
+        System.out.println("end bracketexpression");
+        return expression;
     }
 }
